@@ -100,8 +100,8 @@ export default {
                 const headers = new Headers();
                 object.writeHttpMetadata(headers);
                 headers.set('Content-Type', object.httpMetadata.contentType || 'application/octet-stream');
-                // استخراج الاسم الأصلي من الاسم المخزن (إزالة الـ UUID)
-                const originalFileName = object.key.includes('-') ? object.key.split('-').slice(1).join('-') : object.key;
+                // الـ UUID دائماً 36 حرفاً + الشرطة = 37 حرفاً
+                const originalFileName = object.key.length > 37 ? object.key.substring(37) : object.key;
                 headers.set('Content-Disposition', `attachment; filename="${originalFileName}"`);
 
                 // دمج رؤوس CORS مع رؤوس الملف
