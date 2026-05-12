@@ -24,6 +24,16 @@ export default {
             });
         }
 
+        // إضافة معالج للمسار الرئيسي للتأكد من عمل النظام
+        if (url.pathname === '/' || url.pathname === '') {
+            return new Response(JSON.stringify({ status: "running", message: "نظام إدارة الملفات يعمل بنجاح" }), {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+            });
+        }
+
         // نقطة نهاية لجلب قائمة الملفات
         if (url.pathname === '/files-list' && request.method === 'GET') {
             try {
