@@ -1,0 +1,12 @@
+name = "my-cloudflare-backend-worker"
+main = "index.js"
+compatibility_date = "2026-05-11" # تم تحديث التاريخ ليتوافق مع أحدث الميزات
+
+[[d1_databases]]
+binding = "DB"
+database_name = "my-file-db"
+database_id = "YOUR_D1_DATABASE_ID" # **هام:** استبدل هذا بالـ ID الفعلي لقاعدة بيانات D1 الخاصة بك
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "my-company-files-bucket" # **هام:** استبدل هذا باسم دلو R2 الخاص بك
