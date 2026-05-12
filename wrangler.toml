@@ -1,12 +1,12 @@
-name = "my-cloudflare-backend-worker"
+name = "initialsafety" # تم تحديث اسم Worker ليتطابق مع اسم المستودع
 main = "index.js"
 compatibility_date = "2026-05-11" # تم تحديث التاريخ ليتوافق مع أحدث الميزات
 
 [[d1_databases]]
 binding = "DB"
 database_name = "my-file-db"
-database_id = "YOUR_D1_DATABASE_ID" # **هام:** استبدل هذا بالـ ID الفعلي لقاعدة بيانات D1 الخاصة بك
+database_id = "YOUR_D1_DATABASE_ID" # **هام:** استبدل هذا بالـ ID الفعلي لقاعدة بيانات D1 الخاصة بك (لا تنس هذه الخطوة!)
 
 [[r2_buckets]]
 binding = "R2_BUCKET"
-bucket_name = "my-company-files-bucket" # **هام:** استبدل هذا باسم دلو R2 الخاص بك
+bucket_name = "my-company-files-bucket" # **هام:** استبدل هذا باسم دلو R2 الخاص بك (لا تنس هذه الخطوة!)
