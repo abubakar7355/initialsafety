@@ -8,69 +8,63 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+};
+
+/**
+ * دالة مساعدة لإرسال ردود بصيغة JSON مع رؤوس CORS
+ */
+const jsonResponse = (data, status = 200) => {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+};
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
-        // معالجة طلبات CORS Preflight (OPTIONS)
         if (request.method === "OPTIONS") {
-            return new Response(null, {
-                headers: {
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type",
-                    "Access-Control-Max-Age": "86400",
-                },
-            });
+            return new Response(null, { headers: corsHeaders });
         }
 
-        // إضافة معالج للمسار الرئيسي للتأكد من عمل النظام
         if (url.pathname === '/' || url.pathname === '') {
-            return new Response(JSON.stringify({ status: "running", message: "نظام إدارة الملفات يعمل بنجاح" }), {
-                headers: {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*"
-                },
-            });
+            return jsonResponse({ status: "running", message: "نظام إدارة الملفات يعمل بنجاح" });
         }
 
         // نقطة نهاية لجلب قائمة الملفات
         if (url.pathname === '/files-list' && request.method === 'GET') {
             try {
-                // استخدام DB (الذي تم ربطه في wrangler.toml) للوصول إلى D1
                 const { results } = await env.DB.prepare(
                     "SELECT id, original_name, stored_name, upload_date FROM uploaded_files ORDER BY upload_date DESC"
                 ).all();
 
-                return new Response(JSON.stringify(results), {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*', // للسماح للواجهة الأمامية بالوصول
-                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type',
-                    },
-                });
+                return jsonResponse(results);
             } catch (error) {
                 console.error('Error fetching files from D1:', error);
-                return new Response('تعذر جلب قائمة الملفات.', { status: 500 });
+                return jsonResponse({ error: 'تعذر جلب قائمة الملفات' }, 500);
             }
         }
 
         // نقطة نهاية لرفع الملفات (سنقوم بتطويرها لاحقاً لتخزين الملفات في R2)
         if (url.pathname === '/upload' && request.method === 'POST') {
             try {
-                // في هذه المرحلة، سنقوم فقط بحفظ البيانات الوصفية في D1
-                // تخزين الملف الفعلي في R2 سيكون في خطوة لاحقة
                 const formData = await request.formData();
                 const file = formData.get('file');
 
                 if (!file) {
-                    return new Response('لم يتم اختيار ملف.', { status: 400 });
+                    return jsonResponse({ error: 'لم يتم اختيار ملف' }, 400);
                 }
 
                 const id = crypto.randomUUID(); // إنشاء ID فريد
-                const originalName = file.name;
-                const storedName = `${id}-${originalName}`; // اسم فريد للملف لـ R2
+                // تنظيف اسم الملف من الرموز التي قد تسبب مشاكل في الروابط
+                const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                const storedName = `${id}-${originalName}`;
                 const uploadDate = new Date().toISOString();
 
                 await env.DB.prepare(
@@ -85,18 +79,10 @@ export default {
                     },
                 });
 
-                return new Response(JSON.stringify({ message: 'تم رفع الملف وتنظيمه بنجاح!', id: id, original_name: originalName, stored_name: storedName }), {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type',
-                        'Access-Control-Max-Age': '86400', // Cache preflight requests for 24 hours
-                    },
-                });
+                return jsonResponse({ message: 'تم رفع الملف وتنظيمه بنجاح!', id, original_name: originalName, stored_name: storedName });
             } catch (error) {
                 console.error('Error uploading file data to D1:', error);
-                return new Response('حدث خطأ أثناء الرفع.', { status: 500 });
+                return jsonResponse({ error: 'حدث خطأ أثناء الرفع' }, 500);
             }
         }
 
@@ -108,22 +94,26 @@ export default {
                 const object = await env.R2_BUCKET.get(storedName);
 
                 if (!object) {
-                    return new Response('الملف غير موجود.', { status: 404 });
+                    return jsonResponse({ error: 'الملف غير موجود' }, 404);
                 }
 
                 const headers = new Headers();
                 object.writeHttpMetadata(headers);
                 headers.set('Content-Type', object.httpMetadata.contentType || 'application/octet-stream');
-                headers.set('Content-Disposition', `attachment; filename="${object.key.split('-').slice(1).join('-')}"`); // استخدام الاسم الأصلي للملف
-                headers.set('Access-Control-Allow-Origin', '*');
+                // استخراج الاسم الأصلي من الاسم المخزن (إزالة الـ UUID)
+                const originalFileName = object.key.includes('-') ? object.key.split('-').slice(1).join('-') : object.key;
+                headers.set('Content-Disposition', `attachment; filename="${originalFileName}"`);
+
+                // دمج رؤوس CORS مع رؤوس الملف
+                Object.entries(corsHeaders).forEach(([k, v]) => headers.set(k, v));
 
                 return new Response(object.body, { headers });
             } catch (error) {
                 console.error('Error downloading file from R2:', error);
-                return new Response('حدث خطأ أثناء تحميل الملف.', { status: 500 });
+                return jsonResponse({ error: 'حدث خطأ أثناء تحميل الملف' }, 500);
             }
         }
 
-        return new Response('Not Found', { status: 404 });
+        return jsonResponse({ error: 'Not Found' }, 404);
     },
 };
