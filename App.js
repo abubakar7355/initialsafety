@@ -9,7 +9,7 @@ function App() {
     // استبدل هذا بالرابط المحلي للـ Worker (http://localhost:8787) أو رابط النشر (your-worker.workers.dev)
     const API_BASE_URL = window.location.hostname === 'localhost'
         ? 'http://localhost:8787'
-        : 'https://initialsafety.abubakar7355.workers.dev'; // تم التحديث ليتوافق مع اسم الـ Worker في wrangler.toml
+        : 'https://initialsafety.abubakar73553.workers.dev'; // تم التحديث ليتوافق مع الرابط الصحيح للـ Worker
 
     const onFileChange = (e) => {
         setFile(e.target.files[0]);
